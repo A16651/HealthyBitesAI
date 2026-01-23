@@ -1,0 +1,4 @@
+{
+  "css.customData": ["https://raw.githubusercontent.com/tailwindlabs/tailwindcss/master/types/css-directives.json"],
+  "css.lint.unknownAtRules": "ignore"
+}

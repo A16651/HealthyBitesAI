@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Backend FastAPI Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: healthybites_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=info
+    env_file:
+      - .env
+    volumes:
+      - ./Backend:/app/Backend
+      - ./main.py:/app/main.py
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Next.js Service
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile.frontend
+    container_name: healthybites_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache (Optional - for future caching layer)
+  redis:
+    image: redis:7-alpine
+    container_name: healthybites_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+  # PostgreSQL Database (Optional - for future data persistence)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: healthybites_db
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     - POSTGRES_USER=healthybites
+  #     - POSTGRES_PASSWORD=changeme
+  #     - POSTGRES_DB=healthybites_db
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U healthybites"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+volumes:
+  redis_data:
+    driver: local
+  # postgres_data:
+  #   driver: local
+
+networks:
+  default:
+    name: healthybites_network
