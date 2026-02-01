@@ -114,17 +114,26 @@ async def barcode_search(code: str) -> ProductResponse:
         GET /api/v1/barcode/8901063018761
     """
     try:
-        product = openfoodfacts_service.barcode_search(code)
+        product_data = openfoodfacts_service.barcode_search(code)
         
-        if not product:
+        if not product_data:
             logger.warning(f"Product not found for barcode: {code}")
             raise HTTPException(
                 status_code=404,
                 detail=f"Product with barcode '{code}' not found"
             )
         
+        # Transform raw OpenFoodFacts data to ProductResponse format
+        product_response = ProductResponse(
+            code=code,
+            product_name=product_data.get('product_name', 'Unknown Product'),
+            brand=product_data.get('brands', 'Unknown Brand'),
+            image_url=product_data.get('image_front_url') or product_data.get('image_url'),
+            id=code
+        )
+        
         logger.info(f"Barcode search successful for: {code}")
-        return product
+        return product_response
     except HTTPException:
         raise
     except Exception as e:

@@ -5,7 +5,7 @@
 
 // Backend API Configuration
 export const API_CONFIG = {
-  BASE_URL: '127.0.0.1:8000',
+  BASE_URL: 'http://127.0.0.1:8000',
   ENDPOINTS: {
     SEARCH: '/api/v1/search',
     ANALYZE: '/api/v1/analyze/product',

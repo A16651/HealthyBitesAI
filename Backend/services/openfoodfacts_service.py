@@ -146,11 +146,17 @@ class OpenFoodFactsService:
             
             products = []
             for item in data.get('products', []):
+                # Skip products without a valid code/id
+                product_code = item.get('code') or item.get('_id')
+                if not product_code:
+                    logger.warning(f"Skipping product without code: {item.get('product_name', 'Unknown')}")
+                    continue
+                
                 products.append(ProductBase(
                     product_name=item.get('product_name', 'Unknown Product'),
                     brand=item.get('brands', 'Unknown Brand'),
-                    image_url=item.get('image_front_small_url', ''),
-                    id=item.get('code')
+                    image_url=item.get('image_front_small_url', '') or item.get('image_small_url', ''),
+                    id=str(product_code)
                 ))
             
             return products

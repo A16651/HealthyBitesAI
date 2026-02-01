@@ -29,11 +29,13 @@ export default function Home() {
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [barcodeOpen, setBarcodeOpen] = useState(false);
+    const [lastSearchType, setLastSearchType] = useState<'text' | 'barcode'>('text');
 
     const handleSearch = async (query: string) => {
         if (!query.trim()) return;
         setLoading(true);
         setHasSearched(true);
+        setLastSearchType('text');
         try {
             const url = `${getApiUrl('SEARCH')}?q=${encodeURIComponent(query)}`;
             const res = await fetch(url);
@@ -42,7 +44,7 @@ export default function Home() {
                 setSearchResults(data.products || []);
                 try { setCacheEntry('lastSearchResults', data.products || []); } catch (e) { }
             } else {
-                console.error("Search failed");
+                console.error("Search failed with status:", res.status);
                 setSearchResults([]);
             }
         } catch (error) {
@@ -73,6 +75,8 @@ export default function Home() {
         setLoading(true);
         setHasSearched(true);
         setSearchResults([]);
+        setLastSearchType('barcode');
+        setSearchQuery(barcode); // Update search query for display
 
         try {
             const url = `${getApiUrl('BARCODE')}/${barcode}`;
@@ -90,21 +94,22 @@ export default function Home() {
 
             if (res.ok) {
                 const data = await res.json();
-                // Handle different response formats
-                if (data.product) {
-                    // Single product response
-                    setSearchResults([data.product]);
-                } else if (data.products) {
-                    // Multiple products response
-                    setSearchResults(data.products);
-                } else if (data.product_name) {
-                    // Direct product object
-                    setSearchResults([data]);
+                // Backend returns ProductResponse with code, product_name, brand, image_url, id
+                if (data.product_name && data.id) {
+                    // Transform ProductResponse to Product format for display
+                    const product: Product = {
+                        product_name: data.product_name,
+                        brand: data.brand || 'Unknown Brand',
+                        id: data.id,
+                        image_url: data.image_url || ''
+                    };
+                    setSearchResults([product]);
                 } else {
+                    console.error("Invalid barcode response format:", data);
                     setSearchResults([]);
                 }
             } else {
-                console.error("Barcode search failed");
+                console.error("Barcode search failed with status:", res.status);
                 setSearchResults([]);
             }
         } catch (error) {
@@ -200,7 +205,9 @@ export default function Home() {
                             ))}
                         </div>
                     ) : (
-                        <p className="text-center text-muted-foreground py-8">No products found for "{searchQuery}"</p>
+                        <p className="text-center text-muted-foreground py-8">
+                            No products found {lastSearchType === 'barcode' ? 'for barcode' : 'for'} "{searchQuery}"
+                        </p>
                     )}
                 </section>
             )}
