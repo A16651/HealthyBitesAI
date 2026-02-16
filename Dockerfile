@@ -1,6 +1,10 @@
 # =============================================================================
 # HealthyBitesAI — Production Dockerfile
-# Single container: FastAPI backend + Next.js frontend (standalone)
+# Single container: FastAPI backend (public) + Next.js frontend (internal)
+#
+# Architecture:
+#   FastAPI  → $PORT (Render-exposed, public)
+#   Next.js  → :3000 (internal only, proxied by FastAPI)
 # =============================================================================
 
 # ---------------------------------------------------------------------------
@@ -14,6 +18,9 @@ COPY Frontend/package.json Frontend/package-lock.json ./
 RUN npm ci --legacy-peer-deps
 
 COPY Frontend/ ./
+
+# In production, API calls go to same origin (empty base URL)
+# This ensures fetch('/api/v1/search') works via the FastAPI reverse proxy
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
@@ -53,9 +60,11 @@ COPY --from=frontend-build /build/.next/static     ./Frontend/.next/static
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-EXPOSE 8000 3000
+# Only expose the public port — Next.js runs internally on 3000
+EXPOSE ${PORT:-8000}
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+# Health check hits FastAPI's /health endpoint on the public port
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8000}/health')" || exit 1
 
 ENTRYPOINT ["./entrypoint.sh"]

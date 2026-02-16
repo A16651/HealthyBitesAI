@@ -3,8 +3,8 @@ services:
     build: .
     container_name: healthybites
     ports:
+      # Only expose the public port — Next.js stays internal
       - "8000:8000"
-      - "3000:3000"
     env_file:
       - .env
     environment:
