@@ -11,9 +11,11 @@ Typical usage:
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 from Backend.config import get_settings
 from Backend.routes import products, analysis
+from Backend.database import create_tables
 
 # Configure logging
 logging.basicConfig(
@@ -25,13 +27,31 @@ logger = logging.getLogger(__name__)
 # Load settings
 settings = get_settings()
 
+# Lifecycle events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application startup and shutdown."""
+    # Startup
+    logger.info("Initializing database...")
+    try:
+        create_tables()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.warning(f"Could not initialize database: {e}. Continuing without database caching.")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down application...")
+
 # Initialize FastAPI application
 app = FastAPI(
     title=settings.app_name,
     description="Backend API for Label Padhega India - A Food Transparency Application",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Configure CORS middleware

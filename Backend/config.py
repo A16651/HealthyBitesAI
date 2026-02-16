@@ -35,6 +35,12 @@ class Settings(BaseSettings):
         host: Server host address.
         port: Server port number.
         log_level: Logging level (debug, info, warning, error).
+        db_user: MySQL database user.
+        db_password: MySQL database password.
+        db_host: MySQL database host.
+        db_port: MySQL database port.
+        db_name: MySQL database name.
+        use_database_cache: Whether to use database caching for products.
     """
     
     # Application Settings
@@ -56,6 +62,14 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     log_level: str = "info"
+    
+    # MySQL Database Configuration
+    db_user: str = "root"
+    db_password: str = "Intentinal#Bad_Practice_36"
+    db_host: str = "localhost"
+    db_port: int = 3306
+    db_name: str = "healthybites"
+    use_database_cache: bool = True
     
     class Config:
         """Pydantic configuration for Settings class.

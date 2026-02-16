@@ -122,6 +122,68 @@ RESPONSE:
         if not WATSON_AVAILABLE:
             logger.warning("Watson SDK not available. Service will operate in mock mode.")
     
+    def parse_analysis_into_sections(self, analysis_text: str) -> list:
+        """Parses plain-text analysis into structured sections.
+        
+        Extracts the following sections from the analysis text:
+        1. OVERALL VERDICT
+        2. SUMMARY
+        3. KEY RISKS
+        4. POSITIVE HIGHLIGHTS
+        5. RECOMMENDATION
+        6. MARKETING TRAPS
+        
+        Args:
+            analysis_text: The plain-text analysis from Watson AI.
+            
+        Returns:
+            A list of section strings in the order: 
+            [overall_verdict, summary, key_risks, positive_highlights, recommendation, marketing_traps]
+        """
+        sections = {}
+        section_names = [
+            'OVERALL VERDICT',
+            'SUMMARY', 
+            'KEY RISKS',
+            'POSITIVE HIGHLIGHTS',
+            'RECOMMENDATION',
+            'MARKETING TRAPS'
+        ]
+        
+        # Build a regex pattern to split the text by section headers
+        # This will match any of the section names followed by optional colon
+        text_lines = analysis_text.split('\n')
+        current_section = None
+        current_content = []
+        
+        for line in text_lines:
+            # Check if this line is a section header
+            is_section_header = False
+            for section_name in section_names:
+                if line.strip().upper().startswith(section_name):
+                    # Save previous section
+                    if current_section:
+                        sections[current_section] = '\n'.join(current_content).strip()
+                    # Start new section
+                    current_section = section_name
+                    current_content = []
+                    is_section_header = True
+                    break
+            
+            if not is_section_header and current_section:
+                current_content.append(line)
+        
+        # Don't forget the last section
+        if current_section:
+            sections[current_section] = '\n'.join(current_content).strip()
+        
+        # Return sections in order, providing empty string if section not found
+        result = []
+        for section_name in section_names:
+            result.append(sections.get(section_name, ""))
+        
+        return result
+
     def analyze_ingredients(
         self, 
         ingredients: str, 

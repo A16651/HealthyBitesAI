@@ -28,20 +28,20 @@ class AnalyzeRequest(BaseModel):
 class AnalyzeResponse(BaseModel):
     """Response model for ingredient analysis.
     
-    This model contains the analysis results from Watson AI in plain text format.
+    This model contains the analysis results from Watson AI structured as sections.
     
     Attributes:
         product_name: The product name being analyzed.
-        analysis: Plain text analysis result containing health assessment,
-                 risks, recommendations, and marketing trap warnings.
+        analysis_sections: List of analysis sections (overall_verdict, summary, key_risks, 
+                          positive_highlights, recommendation, marketing_traps).
     """
     product_name: Optional[str] = Field(
         None,
         description="Product name"
     )
-    analysis: str = Field(
+    analysis_sections: List[str] = Field(
         ...,
-        description="Plain text analysis containing health assessment and recommendations"
+        description="List of analysis sections in order: [overall_verdict, summary, key_risks, positive_highlights, recommendation, marketing_traps]"
     )
 
 

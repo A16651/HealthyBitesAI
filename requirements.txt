@@ -10,3 +10,5 @@ ibm-watson
 pytest
 pytest-asyncio
 httpx
+mysql-connector-python
+sqlalchemy
