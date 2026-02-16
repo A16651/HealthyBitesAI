@@ -1,57 +1,61 @@
-# Multi-stage Dockerfile Starts both Backend and Frontend
-# 1: Build Frontend (Next.js Static Export)
-FROM node:18-alpine AS frontend-builder
+# =============================================================================
+# HealthyBitesAI — Production Dockerfile
+# Single container: FastAPI backend + Next.js frontend (standalone)
+# =============================================================================
 
-WORKDIR /app/frontend
+# ---------------------------------------------------------------------------
+# Stage 1: Build Next.js frontend
+# ---------------------------------------------------------------------------
+FROM node:20-alpine AS frontend-build
 
-# Copy frontend package files
-COPY Frontend/package*.json ./
-RUN npm ci --only=production
+WORKDIR /build
 
-# Copy frontend source code
+COPY Frontend/package.json Frontend/package-lock.json ./
+RUN npm ci --legacy-peer-deps
+
 COPY Frontend/ ./
-
-# Build Next.js application - generates static files in /out or .next/standalone
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# 2: Setup Python Backend
-FROM python:3.12-slim AS backend
+# ---------------------------------------------------------------------------
+# Stage 2: Production runtime
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /app
 
-# Install system dependencies if needed
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# --- Node.js runtime (needed to serve Next.js standalone) ------------------
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    apt-get purge -y --auto-remove curl gnupg && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy backend requirements and install Python dependencies
-COPY requirements.txt .
+# --- Python dependencies ---------------------------------------------------
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend code
+# --- Backend code -----------------------------------------------------------
 COPY Backend/ ./Backend/
-COPY main.py .
+COPY main.py ./
 
-# Copy built frontend static files from the builder stage
-COPY --from=frontend-builder /app/frontend/.next/standalone /app/frontend/.next/standalone
-COPY --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/static
-COPY --from=frontend-builder /app/frontend/public /app/frontend/public
+# --- Frontend (standalone build output only — no source, no node_modules) ---
+COPY --from=frontend-build /build/.next/standalone ./Frontend/
+COPY --from=frontend-build /build/.next/static     ./Frontend/.next/static
 
-# Install Node.js in the backend container to serve Next.js
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+# --- Entrypoint --------------------------------------------------------------
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
 
-# Expose ports for both services
 EXPOSE 8000 3000
 
-# Create a startup script to run both services
-RUN echo '#!/bin/bash\n\
-    # Start Backend (uvicorn)\n\
-    uvicorn main:app --host 0.0.0.0 --port 8000 &\n\
-    # Start Frontend (Next.js)\n\
-    cd /app/frontend && node .next/standalone/server.js &\n\
-    # Wait for both processes\n\
-    wait' > /app/start.sh && chmod +x /app/start.sh
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8000}/health')" || exit 1
 
-CMD ["/app/start.sh"]
+ENTRYPOINT ["./entrypoint.sh"]
