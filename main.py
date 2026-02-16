@@ -196,12 +196,12 @@ async def proxy_to_frontend(request: Request, path: str):
 if __name__ == "__main__":
     import uvicorn
 
-    logger.info(f"Starting {settings.app_name} on {settings.host}:{settings.port}")
+    logger.info(f"Starting {settings.app_name} on 0.0.0.0:8000")
 
     uvicorn.run(
         "main:app",
-        host=settings.host,
-        port=settings.port,
+        host="0.0.0.0",
+        port=8000,
         reload=True,
         log_level=settings.log_level
     )

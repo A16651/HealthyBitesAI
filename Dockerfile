@@ -3,7 +3,7 @@
 # Single container: FastAPI backend (public) + Next.js frontend (internal)
 #
 # Architecture:
-#   FastAPI  → $PORT (Render-exposed, public)
+#   FastAPI  → :8000 (public)
 #   Next.js  → :3000 (internal only, proxied by FastAPI)
 # =============================================================================
 
@@ -60,11 +60,11 @@ COPY --from=frontend-build /build/.next/static     ./Frontend/.next/static
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-# Only expose the public port — Next.js runs internally on 3000
-EXPOSE ${PORT:-8000}
+# Backend always runs on port 8000 — Next.js runs internally on 3000
+EXPOSE 8000
 
-# Health check hits FastAPI's /health endpoint on the public port
+# Health check hits FastAPI's /health endpoint on port 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8000}/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 ENTRYPOINT ["./entrypoint.sh"]

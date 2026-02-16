@@ -4,23 +4,22 @@
 # HealthyBitesAI — Production Entrypoint
 #
 # Architecture:
-#   - FastAPI backend  → binds to $PORT (Render's publicly exposed port)
+#   - FastAPI backend  → always binds to port 8000
 #   - Next.js frontend → binds to internal port 3000 (not publicly exposed)
 #   - FastAPI reverse-proxies all non-API requests to Next.js internally
 # =============================================================================
 
-PUBLIC_PORT="${PORT:-8000}"
+BACKEND_PORT=8000
 INTERNAL_FRONTEND_PORT=3000
 
 echo "============================================="
 echo " HealthyBitesAI — Starting services"
 echo "============================================="
-echo "  Backend  (public)   -> :${PUBLIC_PORT}"
+echo "  Backend  (public)   -> :${BACKEND_PORT}"
 echo "  Frontend (internal) -> :${INTERNAL_FRONTEND_PORT}"
 echo "============================================="
 
 # ---- Start Next.js on a fixed internal port ----
-# PORT env var is overridden locally so Next.js doesn't try to use Render's PORT
 cd /app/Frontend && PORT=${INTERNAL_FRONTEND_PORT} HOSTNAME=0.0.0.0 node server.js &
 FRONTEND_PID=$!
 echo "Next.js started (PID: ${FRONTEND_PID}) on :${INTERNAL_FRONTEND_PORT}"
@@ -28,10 +27,10 @@ echo "Next.js started (PID: ${FRONTEND_PID}) on :${INTERNAL_FRONTEND_PORT}"
 # Wait a moment for Next.js to bind
 sleep 2
 
-# ---- Start FastAPI on the public port ----
-cd /app && uvicorn main:app --host 0.0.0.0 --port "${PUBLIC_PORT}" &
+# ---- Start FastAPI strictly on port 8000 ----
+cd /app && uvicorn main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
-echo "FastAPI started (PID: ${BACKEND_PID}) on :${PUBLIC_PORT}"
+echo "FastAPI started (PID: ${BACKEND_PID}) on :8000"
 
 # ---- Graceful shutdown handler ----
 cleanup() {
