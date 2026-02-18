@@ -1,0 +1,43 @@
+# =============================================================================
+# HealthyBitesAI — Frontend Only (Next.js)
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Stage 1: Build Next.js
+# ---------------------------------------------------------------------------
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY Frontend/package.json Frontend/package-lock.json ./
+RUN npm ci --legacy-peer-deps
+
+COPY Frontend/ ./
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# IMPORTANT:
+# Do NOT hardcode API URL here.
+# It will be passed during Render deploy via environment variable.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+RUN npm run build
+
+# ---------------------------------------------------------------------------
+# Stage 2: Production runtime
+# ---------------------------------------------------------------------------
+FROM node:20-alpine
+
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+
+# Copy standalone build output
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]
