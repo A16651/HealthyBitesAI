@@ -1,9 +1,5 @@
-# =============================================================================
-# HealthyBitesAI — Frontend Only (Next.js)
-# =============================================================================
-
 # ---------------------------------------------------------------------------
-# Stage 1: Build Next.js
+# Stage 1: Build
 # ---------------------------------------------------------------------------
 FROM node:20-alpine AS builder
 
@@ -16,28 +12,26 @@ COPY Frontend/ ./
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# IMPORTANT:
-# Do NOT hardcode API URL here.
-# It will be passed during Render deploy via environment variable.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN npm run build
 
 # ---------------------------------------------------------------------------
-# Stage 2: Production runtime
+# Stage 2: Production
 # ---------------------------------------------------------------------------
 FROM node:20-alpine
 
 WORKDIR /app
 
-ENV NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy standalone build output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+#  Force binding to 0.0.0.0 and correct PORT
+CMD ["sh", "-c", "PORT=${PORT:-3000} HOSTNAME=0.0.0.0 node server.js"]
