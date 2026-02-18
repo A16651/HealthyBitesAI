@@ -1,10 +1,12 @@
 # =============================================================================
-# HealthyBitesAI — Production Dockerfile
-# Single container: FastAPI backend (public) + Next.js frontend (internal)
+# HealthyBitesAI — Local Development Dockerfile
 #
-# Architecture:
-#   FastAPI  → :8000 (public)
-#   Next.js  → :3000 (internal only, proxied by FastAPI)
+# NOTE: This is for LOCAL development only.
+# In production (Render), Dockerfile.backend and Dockerfile.frontend are used
+# (managed in the deployment branch).
+#
+# For local convenience this file can still build a combined image,
+# but the canonical deployment is two separate services.
 # =============================================================================
 
 # ---------------------------------------------------------------------------
@@ -19,30 +21,24 @@ RUN npm ci --legacy-peer-deps
 
 COPY Frontend/ ./
 
-# In production, API calls go to same origin (empty base URL)
-# This ensures fetch('/api/v1/search') works via the FastAPI reverse proxy
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# For local dev, the frontend calls the backend at this URL.
+# Override at build time if needed: docker build --build-arg NEXT_PUBLIC_API_URL=...
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN npm run build
 
 # ---------------------------------------------------------------------------
-# Stage 2: Production runtime
+# Stage 2: Production runtime (backend only — frontend is a separate concern)
 # ---------------------------------------------------------------------------
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
-
-# --- Node.js runtime (needed to serve Next.js standalone) ------------------
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y --no-install-recommends nodejs && \
-    apt-get purge -y --auto-remove curl gnupg && \
-    rm -rf /var/lib/apt/lists/*
 
 # --- Python dependencies ---------------------------------------------------
 COPY requirements.txt ./
@@ -52,19 +48,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY Backend/ ./Backend/
 COPY main.py ./
 
-# --- Frontend (standalone build output only — no source, no node_modules) ---
-COPY --from=frontend-build /build/.next/standalone ./Frontend/
-COPY --from=frontend-build /build/.next/static     ./Frontend/.next/static
-
-# --- Entrypoint --------------------------------------------------------------
-COPY entrypoint.sh ./
-RUN chmod +x entrypoint.sh
-
-# Backend always runs on port 8000 — Next.js runs internally on 3000
 EXPOSE 8000
 
-# Health check hits FastAPI's /health endpoint on port 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-ENTRYPOINT ["./entrypoint.sh"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

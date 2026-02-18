@@ -9,6 +9,5 @@ ibm-watson-machine-learning
 ibm-watson
 pytest
 pytest-asyncio
-httpx
 mysql-connector-python
 sqlalchemy
