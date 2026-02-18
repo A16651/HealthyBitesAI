@@ -2,37 +2,29 @@
  * Centralized Configuration for Food Doctor Application
  * All API endpoints, settings, and external resources defined here
  *
- * ARCHITECTURE NOTE:
- *   In production (Render), FastAPI serves as a reverse proxy:
- *     - All API requests go to the SAME origin (no CORS issues)
- *     - FastAPI handles /api/v1/* routes directly
- *     - All other routes are proxied to the internal Next.js server
- *   Therefore, BASE_URL should be '' (empty) in production so that
- *   fetch('/api/v1/search') goes to the same host:port.
+ * ARCHITECTURE NOTE (Two-Service Deployment):
+ *   Backend  → FastAPI on its own Render service (port 8000)
+ *   Frontend → Next.js on its own Render service (port 3000)
+ *   They are fully independent — NO reverse proxy, NO same-origin.
  *
- *   In local development, you can override via NEXT_PUBLIC_API_URL env var.
+ *   NEXT_PUBLIC_API_URL must be set to the backend's public URL so that
+ *   all API calls (e.g. fetch(`${BASE_URL}/api/v1/search`)) reach the
+ *   correct backend service.
+ *
+ *   - Production: NEXT_PUBLIC_API_URL = https://healthybitesai-backend.onrender.com
+ *   - Local dev:  NEXT_PUBLIC_API_URL = http://127.0.0.1:8000
  */
 
 // Backend API Configuration
-// In production: empty string (same origin)
-// In development: 'http://127.0.0.1:8000'
-const getBaseUrl = (): string => {
-  // Client-side: use NEXT_PUBLIC_API_URL if set, otherwise same-origin
-  if (typeof window !== 'undefined') {
-    // Browser environment
-    const envUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (envUrl) return envUrl;
-    // Same-origin (production: FastAPI reverse proxy handles everything)
-    return '';
-  }
-  // Server-side (SSR): use environment variable or localhost fallback
-  return process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-};
+//
+// NEXT_PUBLIC_API_URL is baked in at build time by Next.js:
+//   - Production (Render): set to the backend's public URL
+//   - Local dev (`npm run dev`): set to 'http://127.0.0.1:8000' via .env
+//
+const API_BASE_URL: string = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export const API_CONFIG = {
-  get BASE_URL() {
-    return getBaseUrl();
-  },
+  BASE_URL: API_BASE_URL,
   ENDPOINTS: {
     SEARCH: '/api/v1/search',
     ANALYZE: '/api/v1/analyze/product',
